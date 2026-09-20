@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     env:
@@ -30,13 +30,13 @@ jobs:
     steps:
       # ========== 1. 检出当前仓库 ==========
       - name: 检出当前仓库 📥
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       # ========== 2. Python 环境（官方 pip 缓存） ==========
       - name: 设置Python环境 🐍
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
           cache: 'pip'
@@ -168,7 +168,6 @@ jobs:
 
           git commit -m "自动更新 zuboip 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
 
-          # 显式处理 rebase 失败
           if ! git pull --rebase origin "${PRIVATE_BRANCH}"; then
             echo "错误: git pull --rebase 失败，可能有冲突，终止推送"
             cd /
@@ -176,7 +175,6 @@ jobs:
             exit 1
           fi
 
-          # 显式处理 push 失败
           if ! git push origin "${PRIVATE_BRANCH}"; then
             echo "错误: git push 失败"
             cd /
