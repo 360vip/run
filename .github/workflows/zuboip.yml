@@ -1,370 +1,178 @@
-name: zuboip Update
+name: 组播服务IP节目检测（私库zuboip模式）
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '45 0,5,11 * * *'   # UTC 0:45 / 5:45 / 11:45 = 北京 8:45 / 13:45 / 19:45
   workflow_dispatch:
+    inputs:
+      branch:
+        description: '分支'
+        required: true
+        default: 'main'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 90
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests gitpython beautifulsoup4 html5lib chardet pycryptodome
-        
-    - name: 创建必要目录
-      run: |
-        mkdir -p data
-        mkdir -p proxy
-        mkdir -p tvbox/jar
-        mkdir -p xl
-        mkdir -p jiemi
-        mkdir -p datamz
-        mkdir -p myjk
-        mkdir -p bbjk
-        mkdir -p mybox
-        echo "目录创建完成"
-        
-    - name: 从私有仓库克隆并复制文件
-      run: |
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/private-repo
-        
-        # 复制 Python 脚本文件
-        if [ -f "/tmp/private-repo/toolspy/tvbox_tools.py" ]; then
-          cp /tmp/private-repo/toolspy/tvbox_tools.py .
-          echo "tvbox_tools.py 已复制"
-        else
-          echo "警告: tvbox_tools.py 不存在"
-        fi
-        
-        if [ -f "/tmp/private-repo/toolspy/mybox.py" ]; then
-          cp /tmp/private-repo/toolspy/mybox.py .
-          echo "mybox.py 已复制"
-        else
-          echo "警告: mybox.py 不存在"
-        fi
-        
-        if [ -f "/tmp/private-repo/proxy/dl.py" ]; then
-          cp /tmp/private-repo/proxy/dl.py .
-          echo "dl.py 已复制"
-        else
-          echo "警告: dl.py 不存在"
-        fi
-        
-        # 复制 jkmz.py 脚本
-        if [ -f "/tmp/private-repo/toolspy/jkmz.py" ]; then
-          cp /tmp/private-repo/toolspy/jkmz.py .
-          echo "jkmz.py 已复制"
-        else
-          echo "警告: toolspy/jkmz.py 不存在"
-        fi
-        
-        # 复制数据文件
-        if [ -f "/tmp/private-repo/data/url.txt" ]; then
-          cp /tmp/private-repo/data/url.txt ./data/
-          echo "url.txt 已复制到 data 目录"
-        else
-          echo "警告: data/url.txt 不存在"
-        fi
-        
-        if [ -f "/tmp/private-repo/proxy/url.txt" ]; then
-          cp /tmp/private-repo/proxy/url.txt ./proxy/
-          echo "url.txt 已复制到 proxy 目录"
-        else
-          echo "警告: proxy/url.txt 不存在"
-        fi
-        
-        if [ -f "/tmp/private-repo/data/hmd.txt" ]; then
-          cp /tmp/private-repo/data/hmd.txt ./data/
-          echo "hmd.txt 已复制到 data 目录"
-        else
-          echo "警告: data/hmd.txt 不存在"
-        fi
+      # ========== 1. 检出当前仓库 ==========
+      - name: 检出当前仓库 📥
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        # 复制 datamz 目录所有文件
-        if [ -d "/tmp/private-repo/datamz" ]; then
-          cp -r /tmp/private-repo/datamz/* ./datamz/ 2>/dev/null || echo "datamz 目录为空"
-          echo "datamz 目录文件已复制"
-        else
-          echo "警告: datamz 目录不存在"
-        fi
+      # ========== 2. Python 环境 ==========
+      - name: 设置Python环境 🐍
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip'
 
-        # 清理临时目录
-        rm -rf /tmp/private-repo
-        echo "私有仓库文件复制完成"
-        
-    - name: 更新 tvbox 接口
-      run: |
-        python tvbox_tools.py
-        
-    - name: 代理检测速度
-      run: |
-        python dl.py
-        
-    - name: 运行 接口格式标准化转换
-      run: |
-        python mybox.py
-        
-    - name: 运行 接口名字修改
-      run: |
-        if [ -f "jkmz.py" ]; then
-          python jkmz.py
-          echo "接口名字修改 运行完成"
-        else
-          echo "警告: jkmz.py 不存在，跳过运行"
-        fi
-        
-    - name: 推送 mybox 目录到私有仓库
-      run: |
-        if [ ! -d "mybox" ]; then
-          echo "警告: mybox 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        echo "开始推送 mybox 目录到私有仓库..."
-        
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo
-        
-        # 清空目标目录
-        if [ -d "/tmp/push-repo/mybox" ]; then
-          rm -rf /tmp/push-repo/mybox/*
-          echo "已清空 /tmp/push-repo/mybox 目录"
-        else
-          mkdir -p /tmp/push-repo/mybox
-        fi
-        
-        # 复制 mybox 目录内容
-        cp -r mybox/* /tmp/push-repo/mybox/ 2>/dev/null || echo "mybox 目录为空"
-        
-        cd /tmp/push-repo
-        
-        # 配置 git 用户信息
-        git config user.name "github-actions"
-        git config user.email "github-actions@users.noreply.github.com"
-        
-        # 添加文件
-        git add mybox/
-        
-        # 检查变更并提交
-        if git diff --cached --quiet; then
-          echo "mybox 目录没有变更需要提交"
-        else
-          git commit -m "自动更新 mybox 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main
-          echo "mybox 目录已成功推送到私有仓库"
-        fi
-        
-        cd /
-        rm -rf /tmp/push-repo
-        
-    - name: 推送 xl 目录到私有仓库
-      run: |
-        if [ ! -d "xl" ]; then
-          echo "警告: xl 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        echo "开始推送 xl 目录到私有仓库..."
-        
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-xl
-        
-        # 清空目标目录
-        if [ -d "/tmp/push-repo-xl/xl" ]; then
-          rm -rf /tmp/push-repo-xl/xl/*
-          echo "已清空 /tmp/push-repo-xl/xl 目录"
-        else
-          mkdir -p /tmp/push-repo-xl/xl
-        fi
-        
-        # 复制 xl 目录内容
-        cp -r xl/* /tmp/push-repo-xl/xl/ 2>/dev/null || echo "xl 目录为空"
-        
-        cd /tmp/push-repo-xl
-        
-        # 配置 git 用户信息
-        git config user.name "github-actions"
-        git config user.email "github-actions@users.noreply.github.com"
-        
-        # 添加文件
-        git add xl/
-        
-        # 检查变更并提交
-        if git diff --cached --quiet; then
-          echo "xl 目录没有变更需要提交"
-        else
-          git commit -m "自动更新 xl 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main
-          echo "xl 目录已成功推送到私有仓库"
-        fi
-        
-        cd /
-        rm -rf /tmp/push-repo-xl
+      # ========== 3. 安装依赖 ==========
+      - name: 安装依赖 📦
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium requests futures pyautogui fake_useragent eventlet \
+                      opencv-python Beautifulsoup4 translate termcolor func_timeout \
+                      replace input opencc pypinyin pytz tqdm
 
-    - name: 推送 jiemi 目录到私有仓库
-      run: |
-        if [ ! -d "jiemi" ]; then
-          echo "警告: jiemi 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        echo "开始推送 jiemi 目录到私有仓库..."
-        
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-jiemi
-        
-        # 清空目标目录
-        if [ -d "/tmp/push-repo-jiemi/jiemi" ]; then
-          rm -rf /tmp/push-repo-jiemi/jiemi/*
-          echo "已清空 /tmp/push-repo-jiemi/jiemi 目录"
-        else
-          mkdir -p /tmp/push-repo-jiemi/jiemi
-        fi
-        
-        # 复制 jiemi 目录内容
-        cp -r jiemi/* /tmp/push-repo-jiemi/jiemi/ 2>/dev/null || echo "jiemi 目录为空"
-        
-        cd /tmp/push-repo-jiemi
-        
-        # 配置 git 用户信息
-        git config user.name "github-actions"
-        git config user.email "github-actions@users.noreply.github.com"
-        
-        # 添加文件
-        git add jiemi/
-        
-        # 检查变更并提交
-        if git diff --cached --quiet; then
-          echo "jiemi 目录没有变更需要提交"
-        else
-          git commit -m "自动更新 jiemi 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main
-          echo "jiemi 目录已成功推送到私有仓库"
-        fi
-        
-        cd /
-        rm -rf /tmp/push-repo-jiemi
+      # ========== 4. 从私库 360vip/ittv/zuboip 复制全部脚本和目录 ==========
+      - name: 从私库 zuboip 复制全部文件 📦
+        run: |
+          set -e
+          echo "开始克隆私有仓库 360vip/ittv ..."
+          git clone --depth 1 \
+            https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git \
+            /tmp/private-repo
 
-    - name: 推送 myjk 目录到私有仓库
-      run: |
-        if [ ! -d "myjk" ]; then
-          echo "警告: myjk 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        echo "开始推送 myjk 目录到私有仓库..."
-        
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-myjk
-        
-        # 清空目标目录
-        if [ -d "/tmp/push-repo-myjk/myjk" ]; then
-          rm -rf /tmp/push-repo-myjk/myjk/*
-          echo "已清空 /tmp/push-repo-myjk/myjk 目录"
-        else
-          mkdir -p /tmp/push-repo-myjk/myjk
-        fi
-        
-        # 复制 myjk 目录内容
-        cp -r myjk/* /tmp/push-repo-myjk/myjk/ 2>/dev/null || echo "myjk 目录为空"
-        
-        cd /tmp/push-repo-myjk
-        
-        # 配置 git 用户信息
-        git config user.name "github-actions"
-        git config user.email "github-actions@users.noreply.github.com"
-        
-        # 添加文件
-        git add myjk/
-        
-        # 检查变更并提交
-        if git diff --cached --quiet; then
-          echo "myjk 目录没有变更需要提交"
-        else
-          git commit -m "自动更新 myjk 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main
-          echo "myjk 目录已成功推送到私有仓库"
-        fi
-        
-        cd /
-        rm -rf /tmp/push-repo-myjk
+          if [ ! -d "/tmp/private-repo/zuboip" ]; then
+            echo "错误: 私库中不存在 zuboip 目录"
+            exit 1
+          fi
 
-    - name: 推送 bbjk 目录到私有仓库
-      run: |
-        if [ ! -d "bbjk" ]; then
-          echo "警告: bbjk 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        echo "开始推送 bbjk 目录到私有仓库..."
-        
-        # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-bbjk
-        
-        # 清空目标目录
-        if [ -d "/tmp/push-repo-bbjk/bbjk" ]; then
-          rm -rf /tmp/push-repo-bbjk/bbjk/*
-          echo "已清空 /tmp/push-repo-bbjk/bbjk 目录"
-        else
-          mkdir -p /tmp/push-repo-bbjk/bbjk
-        fi
-        
-        # 复制 bbjk 目录内容
-        cp -r bbjk/* /tmp/push-repo-bbjk/bbjk/ 2>/dev/null || echo "bbjk 目录为空"
-        
-        cd /tmp/push-repo-bbjk
-        
-        # 配置 git 用户信息
-        git config user.name "github-actions"
-        git config user.email "github-actions@users.noreply.github.com"
-        
-        # 添加文件
-        git add bbjk/
-        
-        # 检查变更并提交
-        if git diff --cached --quiet; then
-          echo "bbjk 目录没有变更需要提交"
-        else
-          git commit -m "自动更新 bbjk 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "zuboip 目录内容:"
+          ls -la /tmp/private-repo/zuboip
+
+          # 复制 zuboip 下所有文件（含脚本和目录）到工作目录
+          cp -r /tmp/private-repo/zuboip/. ${{ github.workspace }}/
+          echo "zuboip 全部文件已复制到工作目录"
+
+          rm -rf /tmp/private-repo
+
+      # ========== 5. 清理旧数据 ==========
+      - name: 清理旧数据 🗑️
+        run: |
+          for d in fwip rtp zbvv tem; do
+            if [ -d "${{ github.workspace }}/$d" ]; then
+              find ${{ github.workspace }}/$d -name "*.txt" -type f -delete
+              echo "已清理 $d 目录中的 txt 文件"
+            fi
+          done
+
+      # ========== 6. 创建必要目录 ==========
+      - name: 创建必要目录 🗂️
+        run: |
+          mkdir -p ${{ github.workspace }}/zbvv
+          mkdir -p ${{ github.workspace }}/vv
+          mkdir -p ${{ github.workspace }}/fwip
+          mkdir -p ${{ github.workspace }}/tem
+          mkdir -p ${{ github.workspace }}/rtp
+          mkdir -p ${{ github.workspace }}/data
+          echo "必要目录已创建"
+
+      # ========== 7. 执行脚本（与原 main.yml 完全一致） ==========
+      - name: 执行地区IP段关系模版脚本[data] 🛰
+        run: |
+          python ${{ github.workspace }}/py/zbmb.py
+
+      - name: 执行更新组播服务器IP脚本[fwip] 🌎
+        run: |
+          python ${{ github.workspace }}/py/fwip.py
+
+      - name: 执行各地区组播地址在线更新脚本[tem] 📺
+        run: |
+          python ${{ github.workspace }}/py/dqzb.py
+
+      - name: 执行各地区组播节目处理脚本[rtp] 👨‍💻
+        run: |
+          python ${{ github.workspace }}/py/zbjm.py
+
+      - name: 执行检测各地组播电视节目[zbvv] 🚀
+        run: |
+          python ${{ github.workspace }}/py/zbvv.py
+
+      - name: 检查zbvv目录内容 🔍
+        run: |
+          echo "zbvv目录内容:"
+          ls -la ${{ github.workspace }}/zbvv || echo "zbvv目录不存在"
+
+      # ========== 8. 合并 zbvv 目录 txt ==========
+      - name: 合并zbvv文件夹的TXT文件 🔄
+        run: |
+          if [ -z "$(find ${{ github.workspace }}/zbvv -name '*.txt' -type f)" ]; then
+            echo "警告: zbvv目录中没有找到任何txt文件"
+            exit 0
+          fi
+
+          find ${{ github.workspace }}/zbvv -name "*.txt" -type f -exec cat {} + > ${{ github.workspace }}/vv/zball.txt
+
+          awk '!seen[$0]++' ${{ github.workspace }}/vv/zball.txt > ${{ github.workspace }}/vv/zball_temp.txt
+          mv ${{ github.workspace }}/vv/zball_temp.txt ${{ github.workspace }}/vv/zball.txt
+
+          line_count=$(wc -l < ${{ github.workspace }}/vv/zball.txt)
+          echo "合并完成，共 $line_count 行数据"
+
+      # ========== 9. 把整个 zuboip 目录推回私库 ==========
+      - name: 推送 zuboip 目录到私库 🚀
+        run: |
+          set -e
+          echo "开始推送到私有仓库 360vip/ittv/zuboip ..."
+
+          git clone --depth 1 \
+            https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git \
+            /tmp/push-repo
+
+          cd /tmp/push-repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          # 清空旧的 zuboip 目录
+          rm -rf zuboip
+          mkdir -p zuboip
+
+          # 需要保留/更新的目录和文件列表
+          ITEMS="py data fwip rtp zbvv tem vv"
+
+          for item in $ITEMS; do
+            SRC="${{ github.workspace }}/$item"
+            if [ -e "$SRC" ]; then
+              cp -r "$SRC" "zuboip/$item"
+              echo "已复制 $item -> zuboip/$item"
+            else
+              echo "警告: $item 不存在，跳过"
+            fi
+          done
+
+          git add zuboip/
+
+          if git diff --cached --quiet; then
+            echo "zuboip 目录没有变更需要提交"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 0
+          fi
+
+          git commit -m "自动更新 zuboip 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
+
+          # 拉取最新避免冲突
+          git pull --rebase origin main || true
           git push origin main
-          echo "bbjk 目录已成功推送到私有仓库"
-        fi
-        
-        cd /
-        rm -rf /tmp/push-repo-bbjk
-        
-    - name: 本地推送 tvbox/jar 目录
-      run: |
-        if [ ! -d "tvbox/jar" ]; then
-          echo "警告: tvbox/jar 目录不存在，跳过推送"
-          exit 0
-        fi
-        
-        # 配置 git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # 只添加 tvbox/jar 目录
-        git add tvbox/jar/
-        
-        # 检查是否有变更
-        if git diff --cached --quiet; then
-          echo "tvbox/jar 目录没有变更需要提交"
-        else
-          git commit -m "更新 tvbox/jar 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
-          git push origin main
-          echo "tvbox/jar 目录已成功推送到本地仓库"
-        fi
+
+          echo "zuboip 目录已成功推送到私有仓库"
+          cd /
+          rm -rf /tmp/push-repo
