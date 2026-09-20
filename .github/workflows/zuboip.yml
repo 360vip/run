@@ -146,7 +146,7 @@ jobs:
           mkdir -p zuboip
 
           # 需要保持"完全一致"的目录：先删干净再复制
-          CLEAN_ITEMS="fwip rtp zbvv tem vv"
+          CLEAN_ITEMS="data fwip rtp zbvv tem vv"
           # 需要复制的目录：包含 data，但不包含 py
           COPY_ITEMS="data fwip rtp zbvv tem vv"
 
