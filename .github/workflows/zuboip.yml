@@ -1,4 +1,4 @@
-name: TVBox Config Update
+name: zuboip Update
 
 on:
   schedule:
@@ -39,7 +39,7 @@ jobs:
     - name: 从私有仓库克隆并复制文件
       run: |
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/private-repo
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/private-repo
         
         # 复制 Python 脚本文件
         if [ -f "/tmp/private-repo/toolspy/tvbox_tools.py" ]; then
@@ -136,7 +136,7 @@ jobs:
         echo "开始推送 mybox 目录到私有仓库..."
         
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/push-repo
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo
         
         # 清空目标目录
         if [ -d "/tmp/push-repo/mybox" ]; then
@@ -180,7 +180,7 @@ jobs:
         echo "开始推送 xl 目录到私有仓库..."
         
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/push-repo-xl
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-xl
         
         # 清空目标目录
         if [ -d "/tmp/push-repo-xl/xl" ]; then
@@ -224,7 +224,7 @@ jobs:
         echo "开始推送 jiemi 目录到私有仓库..."
         
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/push-repo-jiemi
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-jiemi
         
         # 清空目标目录
         if [ -d "/tmp/push-repo-jiemi/jiemi" ]; then
@@ -268,7 +268,7 @@ jobs:
         echo "开始推送 myjk 目录到私有仓库..."
         
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/push-repo-myjk
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-myjk
         
         # 清空目标目录
         if [ -d "/tmp/push-repo-myjk/myjk" ]; then
@@ -312,7 +312,7 @@ jobs:
         echo "开始推送 bbjk 目录到私有仓库..."
         
         # 克隆私有仓库
-        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/my.git /tmp/push-repo-bbjk
+        git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git /tmp/push-repo-bbjk
         
         # 清空目标目录
         if [ -d "/tmp/push-repo-bbjk/bbjk" ]; then
