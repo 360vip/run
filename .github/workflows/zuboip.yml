@@ -142,13 +142,15 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          rm -rf zuboip
+          # 确保 zuboip 目录存在（不清空整体，保留 py 等未在清单中的目录）
           mkdir -p zuboip
 
-          ITEMS="data fwip rtp zbvv tem vv"
+          # 需要保持"完全一致"的目录：先删干净再复制
           CLEAN_ITEMS="fwip rtp zbvv tem vv"
+          # 需要复制的目录：包含 data，但不包含 py
+          COPY_ITEMS="data fwip rtp zbvv tem vv"
 
-          # 先清空私库中需要保持最新的目录，避免残留旧文件
+          # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
           for item in $CLEAN_ITEMS; do
             if [ -d "zuboip/$item" ]; then
               echo "清空私库旧目录: zuboip/$item"
@@ -156,8 +158,8 @@ jobs:
             fi
           done
 
-          # 再复制最新内容进私库
-          for item in $ITEMS; do
+          # 第二步：复制最新内容进私库（不含 py，py 保留原样）
+          for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
             if [ -e "$SRC" ]; then
               cp -r "$SRC" "zuboip/$item"
@@ -166,6 +168,13 @@ jobs:
               echo "警告: $item 不存在，跳过"
             fi
           done
+
+          # 确认 py 目录仍然存在
+          if [ -d "zuboip/py" ]; then
+            echo "✅ 私库 zuboip/py 目录保留完好"
+          else
+            echo "⚠️ 警告: 私库 zuboip/py 目录不存在（可能私库里本来就没有）"
+          fi
 
           git add zuboip/
 
