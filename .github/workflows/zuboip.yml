@@ -169,13 +169,6 @@ jobs:
             fi
           done
 
-          # 确认 py 目录仍然存在
-          if [ -d "zuboip/py" ]; then
-            echo "✅ 私库 zuboip/py 目录保留完好"
-          else
-            echo "⚠️ 警告: 私库 zuboip/py 目录不存在（可能私库里本来就没有）"
-          fi
-
           git add zuboip/
 
           if git diff --cached --quiet; then
