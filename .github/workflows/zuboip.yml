@@ -9,6 +9,10 @@ on:
         description: '分支'
         required: true
         default: 'main'
+      private_branch:
+        description: '私库分支'
+        required: true
+        default: 'main'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
+    env:
+      PRIVATE_REPO: '360vip/ittv'
+      PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
+
     steps:
       # ========== 1. 检出当前仓库 ==========
       - name: 检出当前仓库 📥
@@ -26,36 +34,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ========== 2. Python 环境（去掉 cache: 'pip'） ==========
+      # ========== 2. Python 环境（官方 pip 缓存） ==========
       - name: 设置Python环境 🐍
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
-      # ========== 2.1 手动缓存 pip（可选，不影响功能） ==========
-      - name: 缓存 pip 📦
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/*.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
 
       # ========== 3. 安装依赖 ==========
       - name: 安装依赖 📦
         run: |
           python -m pip install --upgrade pip
-          pip install selenium requests futures pyautogui fake_useragent eventlet \
-                      opencv-python Beautifulsoup4 translate termcolor func_timeout \
-                      replace input opencc pypinyin pytz tqdm
+          pip install -r requirements.txt
 
-      # ========== 4. 从私库 360vip/ittv/zuboip 复制全部脚本和目录 ==========
-      - name: 从私库 zuboip 复制全部文件 📦
+      # ========== 4. 从私库复制全部脚本和目录 ==========
+      - name: 从私库复制全部文件 📦
         run: |
           set -e
-          echo "开始克隆私有仓库 360vip/ittv ..."
-          git clone --depth 1 \
-            https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git \
+          echo "开始克隆私有仓库 ${PRIVATE_REPO} (branch: ${PRIVATE_BRANCH}) ..."
+          git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
+            "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
             /tmp/private-repo
 
           if [ ! -d "/tmp/private-repo/zuboip" ]; then
@@ -94,24 +93,19 @@ jobs:
 
       # ========== 7. 执行脚本 ==========
       - name: 执行地区IP段关系模版脚本[data] 🛰
-        run: |
-          python ${{ github.workspace }}/py/zbmb.py
+        run: python ${{ github.workspace }}/py/zbmb.py
 
       - name: 执行更新组播服务器IP脚本[fwip] 🌎
-        run: |
-          python ${{ github.workspace }}/py/fwip.py
+        run: python ${{ github.workspace }}/py/fwip.py
 
       - name: 执行各地区组播地址在线更新脚本[tem] 📺
-        run: |
-          python ${{ github.workspace }}/py/dqzb.py
+        run: python ${{ github.workspace }}/py/dqzb.py
 
       - name: 执行各地区组播节目处理脚本[rtp] 👨‍💻
-        run: |
-          python ${{ github.workspace }}/py/zbjm.py
+        run: python ${{ github.workspace }}/py/zbjm.py
 
       - name: 执行检测各地组播电视节目[zbvv] 🚀
-        run: |
-          python ${{ github.workspace }}/py/zbvv.py
+        run: python ${{ github.workspace }}/py/zbvv.py
 
       - name: 检查zbvv目录内容 🔍
         run: |
@@ -138,10 +132,10 @@ jobs:
       - name: 推送 zuboip 目录到私库 🚀
         run: |
           set -e
-          echo "开始推送到私有仓库 360vip/ittv/zuboip ..."
+          echo "开始推送到私有仓库 ${PRIVATE_REPO}/zuboip (branch: ${PRIVATE_BRANCH}) ..."
 
-          git clone --depth 1 \
-            https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/360vip/ittv.git \
+          git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
+            "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
             /tmp/push-repo
 
           cd /tmp/push-repo
@@ -174,8 +168,21 @@ jobs:
 
           git commit -m "自动更新 zuboip 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
 
-          git pull --rebase origin main || true
-          git push origin main
+          # 显式处理 rebase 失败
+          if ! git pull --rebase origin "${PRIVATE_BRANCH}"; then
+            echo "错误: git pull --rebase 失败，可能有冲突，终止推送"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 1
+          fi
+
+          # 显式处理 push 失败
+          if ! git push origin "${PRIVATE_BRANCH}"; then
+            echo "错误: git push 失败"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 1
+          fi
 
           echo "zuboip 目录已成功推送到私有仓库"
           cd /

@@ -1,0 +1,26 @@
+# ===== 基础 =====
+requests
+futures
+eventlet
+
+# ===== 浏览器自动化 =====
+selenium
+fake_useragent
+
+# ===== 图像处理 =====
+opencv-python
+pyautogui
+
+# ===== 文本 / 编码处理 =====
+Beautifulsoup4
+translate
+termcolor
+func_timeout
+replace
+input
+opencc
+pypinyin
+
+# ===== 其他 =====
+pytz
+tqdm
