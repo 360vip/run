@@ -1,4 +1,4 @@
-name: 组播服务IP节目检测（私库zuboip模式）
+name: 组播服务IP节目检测
 
 on:
   schedule:
@@ -26,12 +26,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ========== 2. Python 环境 ==========
+      # ========== 2. Python 环境（去掉 cache: 'pip'） ==========
       - name: 设置Python环境 🐍
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-          cache: 'pip'
+
+      # ========== 2.1 手动缓存 pip（可选，不影响功能） ==========
+      - name: 缓存 pip 📦
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       # ========== 3. 安装依赖 ==========
       - name: 安装依赖 📦
@@ -58,7 +66,6 @@ jobs:
           echo "zuboip 目录内容:"
           ls -la /tmp/private-repo/zuboip
 
-          # 复制 zuboip 下所有文件（含脚本和目录）到工作目录
           cp -r /tmp/private-repo/zuboip/. ${{ github.workspace }}/
           echo "zuboip 全部文件已复制到工作目录"
 
@@ -85,7 +92,7 @@ jobs:
           mkdir -p ${{ github.workspace }}/data
           echo "必要目录已创建"
 
-      # ========== 7. 执行脚本（与原 main.yml 完全一致） ==========
+      # ========== 7. 执行脚本 ==========
       - name: 执行地区IP段关系模版脚本[data] 🛰
         run: |
           python ${{ github.workspace }}/py/zbmb.py
@@ -141,11 +148,9 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          # 清空旧的 zuboip 目录
           rm -rf zuboip
           mkdir -p zuboip
 
-          # 需要保留/更新的目录和文件列表
           ITEMS="py data fwip rtp zbvv tem vv"
 
           for item in $ITEMS; do
@@ -169,7 +174,6 @@ jobs:
 
           git commit -m "自动更新 zuboip 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
 
-          # 拉取最新避免冲突
           git pull --rebase origin main || true
           git push origin main
 
