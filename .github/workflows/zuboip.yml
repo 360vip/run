@@ -145,7 +145,7 @@ jobs:
           rm -rf zuboip
           mkdir -p zuboip
 
-          ITEMS="py data fwip rtp zbvv tem vv"
+          ITEMS="data fwip rtp zbvv tem vv"
 
           for item in $ITEMS; do
             SRC="${{ github.workspace }}/$item"
