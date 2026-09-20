@@ -146,7 +146,17 @@ jobs:
           mkdir -p zuboip
 
           ITEMS="data fwip rtp zbvv tem vv"
+          CLEAN_ITEMS="fwip rtp zbvv tem vv"
 
+          # 先清空私库中需要保持最新的目录，避免残留旧文件
+          for item in $CLEAN_ITEMS; do
+            if [ -d "zuboip/$item" ]; then
+              echo "清空私库旧目录: zuboip/$item"
+              rm -rf "zuboip/$item"
+            fi
+          done
+
+          # 再复制最新内容进私库
           for item in $ITEMS; do
             SRC="${{ github.workspace }}/$item"
             if [ -e "$SRC" ]; then
@@ -182,6 +192,6 @@ jobs:
             exit 1
           fi
 
-          echo "zuboip 目录已成功推送到私有仓库"
+          echo "zuboip 目录已成功推送到私库"
           cd /
           rm -rf /tmp/push-repo
