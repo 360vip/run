@@ -1,8 +1,6 @@
 name: 测试
 
 on:
-  schedule:
-    - cron: '0 7 * * *'   # 每天 UTC 07:00 运行（北京时间 15:00）
   workflow_dispatch:       # 允许手动触发
     inputs:
       private_branch:
