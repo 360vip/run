@@ -1,0 +1,180 @@
+name: TVBox与IPTV更新
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 每天UTC时间3点运行（北京11:00）
+  workflow_dispatch:       # 允许手动触发
+    inputs:
+      private_branch:
+        description: '私库分支'
+        required: true
+        default: 'main'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-interfaces:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      PRIVATE_REPO: '360vip/ittv'
+      PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
+
+    steps:
+      # ========== 1. 检出当前仓库 ==========
+      - name: 检出当前仓库 📥
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ========== 2. Python 环境（官方 pip 缓存） ==========
+      - name: 设置Python环境 🐍
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      # ========== 3. 安装依赖 ==========
+      - name: 安装依赖 📦
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests idna
+
+      # ========== 4. 从私库复制全部脚本和目录 ==========
+      - name: 从私库复制全部文件 📦
+        run: |
+          set -e
+          echo "开始克隆私有仓库 ${PRIVATE_REPO} (branch: ${PRIVATE_BRANCH}) ..."
+          git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
+            "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
+            /tmp/private-repo
+
+          if [ ! -d "/tmp/private-repo/xltv" ]; then
+            echo "错误: 私库中不存在 xltv 目录"
+            exit 1
+          fi
+
+          echo "xltv 目录内容:"
+          ls -la /tmp/private-repo/xltv
+
+          cp -r /tmp/private-repo/xltv/. ${{ github.workspace }}/
+          echo "xltv 全部文件已复制到工作目录"
+
+          rm -rf /tmp/private-repo
+
+      # ========== 5. 清理旧数据 ==========
+      - name: 清理旧数据 🗑️
+        run: |
+          for d in okurl xl zhibo tv; do
+            if [ -d "${{ github.workspace }}/$d" ]; then
+              rm -rf ${{ github.workspace }}/$d/*
+              echo "已清空 $d 目录"
+            fi
+          done
+
+      # ========== 6. 创建必要目录 ==========
+      - name: 创建必要目录 🗂️
+        run: |
+          mkdir -p ${{ github.workspace }}/okurl
+          mkdir -p ${{ github.workspace }}/xl
+          mkdir -p ${{ github.workspace }}/zhibo
+          mkdir -p ${{ github.workspace }}/tv
+          echo "必要目录已创建"
+
+      # ========== 7. 执行脚本 ==========
+      - name: 运行github代理网址脚本
+        run: python ${{ github.workspace }}/gitdl/gitdl.py
+
+      - name: 运行影视接口下载
+        run: python ${{ github.workspace }}/py/tvbox.py
+
+      - name: 运行蓓蓓接口脚本
+        run: python ${{ github.workspace }}/py/bbjk.py
+
+      - name: 运行直播地址下载
+        run: python ${{ github.workspace }}/py/zhibo.py
+
+      - name: 运行直播整理
+        run: python ${{ github.workspace }}/py/zbzl.py
+
+      # ========== 8. 检查输出目录 ==========
+      - name: 检查输出目录内容 🔍
+        run: |
+          for d in okurl xl zhibo tv; do
+            echo "=== $d 目录内容 ==="
+            ls -la ${{ github.workspace }}/$d || echo "$d 目录不存在"
+          done
+
+      # ========== 9. 把整个 xltv 目录推回私库 ==========
+      - name: 推送 xltv 目录到私库 🚀
+        run: |
+          set -e
+          echo "开始推送到私有仓库 ${PRIVATE_REPO}/xltv (branch: ${PRIVATE_BRANCH}) ..."
+
+          git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
+            "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
+            /tmp/push-repo
+
+          cd /tmp/push-repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+          # 确保 xltv 目录存在（不清空整体，保留 py、gitdl 等未在清单中的目录）
+          mkdir -p xltv
+
+          # 需要保持"完全一致"的目录：先删干净再复制
+          CLEAN_ITEMS="okurl xl zhibo tv"
+          # 需要复制的目录：包含运行输出，但不包含 py、gitdl 等脚本目录
+          COPY_ITEMS="okurl xl zhibo tv"
+
+          # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
+          for item in $CLEAN_ITEMS; do
+            if [ -d "xltv/$item" ]; then
+              echo "清空私库旧目录: xltv/$item"
+              rm -rf "xltv/$item"
+            fi
+          done
+
+          # 第二步：复制最新内容进私库（不含 py、gitdl，脚本保留原样）
+          for item in $COPY_ITEMS; do
+            SRC="${{ github.workspace }}/$item"
+            if [ -e "$SRC" ]; then
+              cp -r "$SRC" "xltv/$item"
+              echo "已复制 $item -> xltv/$item"
+            else
+              echo "警告: $item 不存在，跳过"
+            fi
+          done
+
+          git add xltv/
+
+          if git diff --cached --quiet; then
+            echo "xltv 目录没有变更需要提交"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 0
+          fi
+
+          git commit -m "自动更新 xltv 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
+
+          if ! git pull --rebase origin "${PRIVATE_BRANCH}"; then
+            echo "错误: git pull --rebase 失败，可能有冲突，终止推送"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 1
+          fi
+
+          if ! git push origin "${PRIVATE_BRANCH}"; then
+            echo "错误: git push 失败"
+            cd /
+            rm -rf /tmp/push-repo
+            exit 1
+          fi
+
+          echo "xltv 目录已成功推送到私库"
+          cd /
+          rm -rf /tmp/push-repo
