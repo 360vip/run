@@ -2,7 +2,7 @@ name: 组播服务IP节目检测
 
 on:
   schedule:
-    - cron: '45 0,5,11 * * *'   # UTC 0:45 / 5:45 / 11:45 = 北京 8:45 / 13:45 / 19:45
+    - cron: '40 0,5,11 * * *'   # UTC 0:45 / 5:45 / 11:45 = 北京 8:45 / 13:45 / 19:45
   workflow_dispatch:
     inputs:
       branch:
