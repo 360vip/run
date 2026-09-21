@@ -2,7 +2,6 @@ name: TVBox与IPTV更新
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # 每天UTC时间3点运行（北京11:00）
   workflow_dispatch:       # 允许手动触发
     inputs:
       private_branch:
