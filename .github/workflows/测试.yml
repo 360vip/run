@@ -92,19 +92,19 @@ jobs:
           # 确保 xltv 目录存在（不清空整体，保留 py、gitdl 等未在清单中的目录）
           mkdir -p xltv
 
-          # 需要复制的目录：只包含运行输出，不含 py、gitdl 等脚本目录
-          COPY_ITEMS="tv"
+          # 需要复制的目录：本地存在就全新覆盖私库对应目录；
+          # 私库原本没有该目录也没关系，cp 会自动创建
+          COPY_ITEMS="okurl xl zhibo tv"
 
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
             DST="xltv/$item"
             if [ -e "$SRC" ]; then
-              # 关键：先删除私库里的旧目录，再整目录复制，保证全新覆盖、无残留
-              rm -rf "$DST"
-              cp -r "$SRC" "$DST"
-              echo "已覆盖 $item -> $DST"
+              rm -rf "$DST"        # 删除私库旧目录（不存在也无妨）
+              cp -r "$SRC" "$DST"  # 全新复制（目标不存在会自动创建）
+              echo "已复制 $item -> $DST"
             else
-              echo "警告: $item 不存在，跳过"
+              echo "警告: $item 不存在，跳过（保留私库原内容）"
             fi
           done
 
