@@ -1,7 +1,6 @@
-name: 组播服务IP节目检测
+name: 组播检测
 
 on:
-  schedule:
   workflow_dispatch:
     inputs:
       branch:
