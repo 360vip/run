@@ -2,7 +2,7 @@ name: 测试
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # 每天UTC时间3点运行（北京11:00）
+    - cron: '0 7 * * *'   # 每天 UTC 07:00 运行（北京时间 15:00）
   workflow_dispatch:       # 允许手动触发
     inputs:
       private_branch:
@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ========== 2. Python 环境（官方 pip 缓存） ==========
+      # ========== 2. Python 环境 ==========
       - name: 设置Python环境 🐍
         uses: actions/setup-python@v6
         with:
@@ -70,10 +70,15 @@ jobs:
       - name: 运行直播整理
         run: python ${{ github.workspace }}/py/zbzl.py
 
-      # ========== 把整个 xltv 目录推回私库 ==========
+      # ========== 把运行结果推回私库 ==========
       - name: 推送 xltv 目录到私库 🚀
         run: |
           set -e
+
+          # 无论成功失败都清理临时目录
+          cleanup() { rm -rf /tmp/push-repo; }
+          trap cleanup EXIT
+
           echo "开始推送到私有仓库 ${PRIVATE_REPO}/xltv (branch: ${PRIVATE_BRANCH}) ..."
 
           git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
@@ -87,15 +92,17 @@ jobs:
           # 确保 xltv 目录存在（不清空整体，保留 py、gitdl 等未在清单中的目录）
           mkdir -p xltv
 
-          # 需要复制的目录：包含运行输出，但不包含 py、gitdl 等脚本目录
-          COPY_ITEMS="okurl xl zhibo tv"
+          # 需要复制的目录：只包含运行输出，不含 py、gitdl 等脚本目录
+          COPY_ITEMS="tv"
 
-          # 第二步：复制最新内容进私库（不含 py、gitdl，脚本保留原样）
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
+            DST="xltv/$item"
             if [ -e "$SRC" ]; then
-              cp -r "$SRC" "xltv/$item"
-              echo "已复制 $item -> xltv/$item"
+              # 关键：先删除私库里的旧目录，再整目录复制，保证全新覆盖、无残留
+              rm -rf "$DST"
+              cp -r "$SRC" "$DST"
+              echo "已覆盖 $item -> $DST"
             else
               echo "警告: $item 不存在，跳过"
             fi
@@ -105,8 +112,6 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "xltv 目录没有变更需要提交"
-            cd /
-            rm -rf /tmp/push-repo
             exit 0
           fi
 
@@ -114,18 +119,12 @@ jobs:
 
           if ! git pull --rebase origin "${PRIVATE_BRANCH}"; then
             echo "错误: git pull --rebase 失败，可能有冲突，终止推送"
-            cd /
-            rm -rf /tmp/push-repo
             exit 1
           fi
 
           if ! git push origin "${PRIVATE_BRANCH}"; then
             echo "错误: git push 失败"
-            cd /
-            rm -rf /tmp/push-repo
             exit 1
           fi
 
           echo "xltv 目录已成功推送到私库"
-          cd /
-          rm -rf /tmp/push-repo
