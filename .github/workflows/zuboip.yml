@@ -107,6 +107,9 @@ jobs:
       - name: 执行检测各地组播电视节目[zbvv] 🚀
         run: python ${{ github.workspace }}/py/zbvv.py
 
+      - name: 执行检测域名组播电视节目频道 🌎
+        run: python ${{ github.workspace }}/py/ymzb.py
+
       - name: 检查zbvv目录内容 🔍
         run: |
           echo "zbvv目录内容:"
