@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 90
 
     env:
-      PRIVATE_REPO: '360vip/ittv'
+      PRIVATE_REPO: '360vip/ittv/mytv'
       PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
       # ===== 需要从私库复制的目录（可自行增删，空格分隔）=====
       COPY_DIRS: 'py hebing'
