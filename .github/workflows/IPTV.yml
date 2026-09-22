@@ -107,9 +107,9 @@ jobs:
           mkdir -p mytv
 
           # 需要保持"完全一致"的目录：先删干净再复制
-          CLEAN_ITEMS="data fwip rtp zbvv tem vv"
+          CLEAN_ITEMS="tv"
           # 需要复制的目录：包含 data，但不包含 py
-          COPY_ITEMS="data fwip rtp zbvv tem vv"
+          COPY_ITEMS="tv"
 
           # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
           for item in $CLEAN_ITEMS; do
