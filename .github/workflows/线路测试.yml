@@ -92,7 +92,7 @@ jobs:
 
           # 需要复制的目录：本地存在就全新覆盖私库对应目录；
           # 私库原本没有该目录也没关系，cp 会自动创建
-          COPY_ITEMS="okurl xl zhibo tv"
+          COPY_ITEMS="iptv"
 
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
