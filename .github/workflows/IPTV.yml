@@ -1,4 +1,4 @@
-name: IPTV节目合并
+name: 自定IPTV节目合并
 
 on:
   schedule:
@@ -25,7 +25,7 @@ jobs:
       PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
       PRIVATE_SUBDIR: 'mytv'
       # ===== 需要从私库复制的目录（可自行增删，空格分隔）=====
-      COPY_DIRS: 'py hebing'
+      COPY_DIRS: 'py hebing tools'
 
     steps:
       # ========== 1. 检出当前仓库 ==========
@@ -81,6 +81,9 @@ jobs:
           echo "必要目录已创建"
 
       # ========== 5. 执行脚本 ==========
+      - name: 执行自定节目频道 🌎
+        run: python3 "${{ github.workspace }}/tools/iptv.py"
+
       - name: 执行合并电视节目频道 🌎
         run: python3 "${{ github.workspace }}/py/hebing.py"
 
@@ -103,9 +106,9 @@ jobs:
           cd "${PRIVATE_SUBDIR}"
 
           # 需要保持"完全一致"的目录：先删干净再复制
-          CLEAN_ITEMS="tv"
+          CLEAN_ITEMS="tv output"
           # 需要复制的目录（含生成的 data，但不含 py，py 保留原样）
-          COPY_ITEMS="tv data"
+          COPY_ITEMS="tv output"
 
           # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
           for item in $CLEAN_ITEMS; do
