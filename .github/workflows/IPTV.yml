@@ -1,4 +1,4 @@
-name: 组播检测
+name: 节目合并
 
 on:
   workflow_dispatch:
@@ -55,23 +55,23 @@ jobs:
             "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
             /tmp/private-repo
 
-          if [ ! -d "/tmp/private-repo/zuboip" ]; then
-            echo "错误: 私库中不存在 zuboip 目录"
+          if [ ! -d "/tmp/private-repo/mytv" ]; then
+            echo "错误: 私库中不存在 mytv 目录"
             exit 1
           fi
 
-          echo "zuboip 目录内容:"
-          ls -la /tmp/private-repo/zuboip
+          echo "mytv 目录内容:"
+          ls -la /tmp/private-repo/mytv
 
-          cp -r /tmp/private-repo/zuboip/. ${{ github.workspace }}/
-          echo "zuboip 全部文件已复制到工作目录"
+          cp -r /tmp/private-repo/mytv/. ${{ github.workspace }}/
+          echo "mytv 全部文件已复制到工作目录"
 
           rm -rf /tmp/private-repo
 
       # ========== 5. 清理旧数据 ==========
       - name: 清理旧数据 🗑️
         run: |
-          for d in fwip rtp zbvv tem; do
+          for d in tv tem; do
             if [ -d "${{ github.workspace }}/$d" ]; then
               find ${{ github.workspace }}/$d -name "*.txt" -type f -delete
               echo "已清理 $d 目录中的 txt 文件"
@@ -81,44 +81,19 @@ jobs:
       # ========== 6. 创建必要目录 ==========
       - name: 创建必要目录 🗂️
         run: |
-          mkdir -p ${{ github.workspace }}/zbvv
-          mkdir -p ${{ github.workspace }}/vv
-          mkdir -p ${{ github.workspace }}/fwip
-          mkdir -p ${{ github.workspace }}/tem
-          mkdir -p ${{ github.workspace }}/rtp
+          mkdir -p ${{ github.workspace }}/tv
           mkdir -p ${{ github.workspace }}/data
           echo "必要目录已创建"
 
       # ========== 7. 执行脚本 ==========
       - name: 执行检测域名组播电视节目频道 🌎
-        run: python ${{ github.workspace }}/py/ymzb.py
+        run: python ${{ github.workspace }}/py/hebing.py
 
-      - name: 检查zbvv目录内容 🔍
-        run: |
-          echo "zbvv目录内容:"
-          ls -la ${{ github.workspace }}/zbvv || echo "zbvv目录不存在"
-
-      # ========== 8. 合并 zbvv 目录 txt ==========
-      - name: 合并zbvv文件夹的TXT文件 🔄
-        run: |
-          if [ -z "$(find ${{ github.workspace }}/zbvv -name '*.txt' -type f)" ]; then
-            echo "警告: zbvv目录中没有找到任何txt文件"
-            exit 0
-          fi
-
-          find ${{ github.workspace }}/zbvv -name "*.txt" -type f -exec cat {} + > ${{ github.workspace }}/vv/zball.txt
-
-          awk '!seen[$0]++' ${{ github.workspace }}/vv/zball.txt > ${{ github.workspace }}/vv/zball_temp.txt
-          mv ${{ github.workspace }}/vv/zball_temp.txt ${{ github.workspace }}/vv/zball.txt
-
-          line_count=$(wc -l < ${{ github.workspace }}/vv/zball.txt)
-          echo "合并完成，共 $line_count 行数据"
-
-      # ========== 9. 把整个 zuboip 目录推回私库 ==========
-      - name: 推送 zuboip 目录到私库 🚀
+      # ========== 8. 把整个 mytv 目录推回私库 ==========
+      - name: 推送 mytv 目录到私库 🚀
         run: |
           set -e
-          echo "开始推送到私有仓库 ${PRIVATE_REPO}/zuboip (branch: ${PRIVATE_BRANCH}) ..."
+          echo "开始推送到私有仓库 ${PRIVATE_REPO}/mytv (branch: ${PRIVATE_BRANCH}) ..."
 
           git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
             "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
@@ -128,8 +103,8 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          # 确保 zuboip 目录存在（不清空整体，保留 py 等未在清单中的目录）
-          mkdir -p zuboip
+          # 确保 mytv 目录存在（不清空整体，保留 py 等未在清单中的目录）
+          mkdir -p mytv
 
           # 需要保持"完全一致"的目录：先删干净再复制
           CLEAN_ITEMS="data fwip rtp zbvv tem vv"
@@ -138,9 +113,9 @@ jobs:
 
           # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
           for item in $CLEAN_ITEMS; do
-            if [ -d "zuboip/$item" ]; then
-              echo "清空私库旧目录: zuboip/$item"
-              rm -rf "zuboip/$item"
+            if [ -d "mytv/$item" ]; then
+              echo "清空私库旧目录: mytv/$item"
+              rm -rf "mytv/$item"
             fi
           done
 
@@ -148,23 +123,23 @@ jobs:
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
             if [ -e "$SRC" ]; then
-              cp -r "$SRC" "zuboip/$item"
-              echo "已复制 $item -> zuboip/$item"
+              cp -r "$SRC" "mytv/$item"
+              echo "已复制 $item -> mytv/$item"
             else
               echo "警告: $item 不存在，跳过"
             fi
           done
 
-          git add zuboip/
+          git add mytv/
 
           if git diff --cached --quiet; then
-            echo "zuboip 目录没有变更需要提交"
+            echo "mytv 目录没有变更需要提交"
             cd /
             rm -rf /tmp/push-repo
             exit 0
           fi
 
-          git commit -m "自动更新 zuboip 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
+          git commit -m "自动更新 mytv 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
 
           if ! git pull --rebase origin "${PRIVATE_BRANCH}"; then
             echo "错误: git pull --rebase 失败，可能有冲突，终止推送"
@@ -180,6 +155,6 @@ jobs:
             exit 1
           fi
 
-          echo "zuboip 目录已成功推送到私库"
+          echo "mytv 目录已成功推送到私库"
           cd /
           rm -rf /tmp/push-repo
