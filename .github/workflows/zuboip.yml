@@ -49,10 +49,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ========== 4. 从私库复制全部脚本和目录 ==========
-      - name: 从私库复制全部文件 📦
+      # ========== 4. 从私库复制指定目录的全部脚本/文件 ==========
+      - name: 从私库复制指定目录全部脚本 📦
         run: |
           set -e
+
+          # ✅ 需要从私库 zuboip 下复制的目录列表（按需增删）
+          COPY_DIRS="data ip py"
+
           echo "开始克隆私有仓库 ${PRIVATE_REPO} (branch: ${PRIVATE_BRANCH}) ..."
           git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
             "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
@@ -66,8 +70,22 @@ jobs:
           echo "zuboip 目录内容:"
           ls -la /tmp/private-repo/zuboip
 
-          cp -r /tmp/private-repo/zuboip/. ${{ github.workspace }}/
-          echo "zuboip 全部文件已复制到工作目录"
+          # 先校验所有目标目录是否存在于私库
+          for d in $COPY_DIRS; do
+            if [ ! -d "/tmp/private-repo/zuboip/$d" ]; then
+              echo "错误: 私库中不存在 zuboip/$d 目录"
+              exit 1
+            fi
+          done
+
+          # 逐个复制目录内的全部文件到工作目录
+          for d in $COPY_DIRS; do
+            echo "复制 zuboip/$d -> ${{ github.workspace }}/$d"
+            mkdir -p "${{ github.workspace }}/$d"
+            cp -r /tmp/private-repo/zuboip/$d/. "${{ github.workspace }}/$d/"
+          done
+
+          echo "指定目录全部脚本已复制到工作目录"
 
           rm -rf /tmp/private-repo
 
