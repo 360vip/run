@@ -21,8 +21,9 @@ jobs:
     timeout-minutes: 90
 
     env:
-      PRIVATE_REPO: '360vip/ittv/mytv'
+      PRIVATE_REPO: '360vip/ittv'
       PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
+      PRIVATE_SUBDIR: 'mytv'
       # ===== 需要从私库复制的目录（可自行增删，空格分隔）=====
       COPY_DIRS: 'py hebing'
 
@@ -33,13 +34,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ========== 2. Python 环境 ==========
-      - name: 设置Python环境 🐍
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      # ========== 3. 从私库复制指定目录的全部文件 ==========
+      # ========== 2. 从私库 mytv 目录复制指定目录的全部文件 ==========
       - name: 从私库复制指定目录 📦
         run: |
           set -e
@@ -48,16 +43,17 @@ jobs:
             "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
             /tmp/private-repo
 
-          echo "私库根目录内容:"
-          ls -la /tmp/private-repo
+          BASE="/tmp/private-repo/${PRIVATE_SUBDIR}"
+          echo "私库子目录 ${PRIVATE_SUBDIR} 内容:"
+          ls -la "${BASE}" || { echo "错误: 私库中不存在目录 ${PRIVATE_SUBDIR}"; exit 1; }
 
           for dir in ${COPY_DIRS}; do
-            SRC="/tmp/private-repo/${dir}"
+            SRC="${BASE}/${dir}"
             if [ ! -d "${SRC}" ]; then
-              echo "错误: 私库中不存在目录 ${dir}"
+              echo "错误: 私库 ${PRIVATE_SUBDIR} 中不存在目录 ${dir}"
               exit 1
             fi
-            echo "复制目录 ${dir} -> 工作区 ..."
+            echo "复制目录 ${PRIVATE_SUBDIR}/${dir} -> 工作区 ..."
             mkdir -p "${{ github.workspace }}/${dir}"
             cp -r "${SRC}/." "${{ github.workspace }}/${dir}/"
             echo "目录 ${dir} 内容:"
@@ -67,17 +63,7 @@ jobs:
           rm -rf /tmp/private-repo
           echo "指定目录已全部复制到工作目录: ${COPY_DIRS}"
 
-      # ========== 4. 安装依赖 ==========
-      - name: 安装依赖 📦
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f "${{ github.workspace }}/requirements.txt" ]; then
-            pip install -r "${{ github.workspace }}/requirements.txt"
-          else
-            echo "警告: 未找到 requirements.txt，跳过依赖安装"
-          fi
-
-      # ========== 5. 清理旧数据 ==========
+      # ========== 3. 清理旧数据 ==========
       - name: 清理旧数据 🗑️
         run: |
           for d in tv tem; do
@@ -87,22 +73,22 @@ jobs:
             fi
           done
 
-      # ========== 6. 创建必要目录 ==========
+      # ========== 4. 创建必要目录 ==========
       - name: 创建必要目录 🗂️
         run: |
           mkdir -p "${{ github.workspace }}/tv"
           mkdir -p "${{ github.workspace }}/data"
           echo "必要目录已创建"
 
-      # ========== 7. 执行脚本 ==========
-      - name: 执行检测域名组播电视节目频道 🌎
-        run: python "${{ github.workspace }}/py/hebing.py"
+      # ========== 5. 执行脚本 ==========
+      - name: 执行合并电视节目频道 🌎
+        run: python3 "${{ github.workspace }}/py/hebing.py"
 
-      # ========== 8. 把生成结果推回私库 ==========
+      # ========== 6. 把生成结果推回私库 mytv 目录 ==========
       - name: 推送结果到私库 🚀
         run: |
           set -e
-          echo "开始推送到私有仓库 ${PRIVATE_REPO}/mytv (branch: ${PRIVATE_BRANCH}) ..."
+          echo "开始推送到私有仓库 ${PRIVATE_REPO}/${PRIVATE_SUBDIR} (branch: ${PRIVATE_BRANCH}) ..."
 
           git clone --depth 1 --branch "${PRIVATE_BRANCH}" \
             "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/${PRIVATE_REPO}.git" \
@@ -112,7 +98,9 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
 
-          mkdir -p mytv
+          # 所有操作都在 mytv 子目录下进行
+          mkdir -p "${PRIVATE_SUBDIR}"
+          cd "${PRIVATE_SUBDIR}"
 
           # 需要保持"完全一致"的目录：先删干净再复制
           CLEAN_ITEMS="tv"
@@ -121,9 +109,9 @@ jobs:
 
           # 第一步：清空私库中需要完全一致的目录，避免残留旧文件
           for item in $CLEAN_ITEMS; do
-            if [ -d "mytv/$item" ]; then
-              echo "清空私库旧目录: mytv/$item"
-              rm -rf "mytv/$item"
+            if [ -d "$item" ]; then
+              echo "清空私库旧目录: ${PRIVATE_SUBDIR}/$item"
+              rm -rf "$item"
             fi
           done
 
@@ -131,23 +119,25 @@ jobs:
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
             if [ -e "$SRC" ]; then
-              cp -r "$SRC" "mytv/$item"
-              echo "已复制 $item -> mytv/$item"
+              cp -r "$SRC" "$item"
+              echo "已复制 $item -> ${PRIVATE_SUBDIR}/$item"
             else
               echo "警告: $item 不存在，跳过"
             fi
           done
 
-          git add mytv/
+          # 回到仓库根目录再 add，保证路径相对仓库根
+          cd /tmp/push-repo
+          git add "${PRIVATE_SUBDIR}/"
 
           if git diff --cached --quiet; then
-            echo "mytv 目录没有变更需要提交"
+            echo "${PRIVATE_SUBDIR} 目录没有变更需要提交"
             cd /
             rm -rf /tmp/push-repo
             exit 0
           fi
 
-          git commit -m "自动更新 mytv 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
+          git commit -m "自动更新 ${PRIVATE_SUBDIR} 目录 - $(date '+%Y-%m-%d %H:%M:%S')"
 
           # 浅克隆下 rebase 可能因历史不足失败，先补全历史
           git fetch --unshallow origin "${PRIVATE_BRANCH}" || true
@@ -166,6 +156,6 @@ jobs:
             exit 1
           fi
 
-          echo "结果已成功推送到私库"
+          echo "结果已成功推送到私库 ${PRIVATE_SUBDIR} 目录"
           cd /
           rm -rf /tmp/push-repo
