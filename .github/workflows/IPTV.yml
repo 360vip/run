@@ -25,7 +25,7 @@ jobs:
       PRIVATE_BRANCH: ${{ github.event.inputs.private_branch || 'main' }}
       PRIVATE_SUBDIR: 'mytv'
       # ===== 需要从私库复制的目录（可自行增删，空格分隔）=====
-      COPY_DIRS: 'xuanze hebing tools'
+      COPY_DIRS: 'data xuanze hebing tools'
 
     steps:
       # ========== 1. 检出当前仓库 ==========
