@@ -81,6 +81,9 @@ jobs:
           echo "必要目录已创建"
 
       # ========== 5. 执行脚本 ==========
+      - name: 执行自定节目频道 🌎
+        run: python3 "${{ github.workspace }}/xuanze/xztv.py"
+
       - name: 执行合并我的电视节目频道 🌎
         run: python3 "${{ github.workspace }}/tools/iptv.py"
 
