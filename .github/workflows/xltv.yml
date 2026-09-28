@@ -104,6 +104,18 @@ jobs:
           echo "必要目录已创建"
 
       # ========== 7. 执行脚本 ==========
+      - name: 运行github代理网址脚本
+        run: python ${{ github.workspace }}/gitdl/gitdl.py
+
+      - name: 运行影视接口下载
+        run: python ${{ github.workspace }}/py/tvbox.py
+
+      - name: 运行蓓蓓接口脚本
+        run: python ${{ github.workspace }}/py/bbjk.py
+
+      - name: 运行直播地址下载
+        run: python ${{ github.workspace }}/py/zhibo.py
+
       - name: 运行直播整理
         run: python ${{ github.workspace }}/py/zbzl.py
 
