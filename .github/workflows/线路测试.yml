@@ -65,10 +65,6 @@ jobs:
           rm -rf /tmp/private-repo
 
       # ========== 执行脚本 ==========
-      - name: 运行咪咕整理
-        run: python ${{ github.workspace }}/tools/mgip.py
-
-      # ========== 执行脚本 ==========
       - name: 运行咪咕直播
         run: python ${{ github.workspace }}/tools/my_mg.py
 
