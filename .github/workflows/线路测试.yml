@@ -65,8 +65,12 @@ jobs:
           rm -rf /tmp/private-repo
 
       # ========== 执行脚本 ==========
-      - name: 运行直播整理
+      - name: 运行咪咕整理
         run: python ${{ github.workspace }}/tools/mgip.py
+
+      # ========== 执行脚本 ==========
+      - name: 运行咪咕直播
+        run: python ${{ github.workspace }}/tools/my_mg.py
 
       # ========== 把运行结果推回私库 ==========
       - name: 推送 ceshi 目录到私库 🚀
@@ -92,7 +96,7 @@ jobs:
 
           # 需要复制的目录：本地存在就全新覆盖私库对应目录；
           # 私库原本没有该目录也没关系，ip 目录自动创建
-          COPY_ITEMS="ip"
+          COPY_ITEMS="ip mgip mymg"
 
           for item in $COPY_ITEMS; do
             SRC="${{ github.workspace }}/$item"
